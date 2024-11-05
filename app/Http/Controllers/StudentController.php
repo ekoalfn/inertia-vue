@@ -2,25 +2,36 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreStudentRequest;
-use App\Http\Requests\UpdateStudentRequest;
-use App\Http\Resources\ClassResource;
-use App\Http\Resources\StudentResource;
 use App\Models\Classes;
 use App\Models\Student;
 use Illuminate\Http\Request;
+use App\Http\Resources\ClassResource;
+use App\Http\Resources\StudentResource;
+use Illuminate\Database\Eloquent\Builder;
+use App\Http\Requests\StoreStudentRequest;
+use App\Http\Requests\UpdateStudentRequest;
 
 class StudentController extends Controller
 {
     public function index()
     {
-        $students = StudentResource::collection(Student::paginate(10));
-        
-        return inertia(
-            'Student/Index', [
-                'students' => $students
-            ]
-        );
+        $studentQuery = Student::query();
+
+        $studentQuery = $this->applySearch($studentQuery, request('search'));
+
+        return inertia('Student/Index', [
+            'students' => StudentResource::collection(
+                $studentQuery->paginate(10)
+            ),
+            'search' => request('search') ?? ''
+        ]);
+    }
+
+    protected function applySearch(Builder $query, $search)
+    {
+        return $query->when($search, function ($query, $search) {
+            $query->where('name', 'like', '%' . $search . '%');
+        });
     }
 
     public function create()
@@ -35,6 +46,7 @@ class StudentController extends Controller
     public function store(StoreStudentRequest $request)
     {
         Student::create($request->validated());
+
         return redirect()->route('students.index');
     }
 
@@ -58,7 +70,7 @@ class StudentController extends Controller
     public function destroy(Student $student)
     {
         $student->delete();
-        
+
         return redirect()->route('students.index');
     }
 }
